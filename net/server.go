@@ -118,3 +118,7 @@ func (s *Server) CallOnConnStop(conn iface.IConnection) {
 func (s *Server) Packet() iface.IDataPack {
 	return nil
 }
+
+func (s *Server) Logger() *zap.Logger {
+	return s.logger
+}

@@ -2,11 +2,13 @@ package net
 
 import (
 	"context"
+	"io"
 	"net"
 	"sync"
 
 	"github.com/cocomylove/tcpserver/iface"
 	"github.com/cocomylove/tcpserver/utils/config"
+	"go.uber.org/zap"
 )
 
 type Connection struct {
@@ -43,6 +45,72 @@ func NewConnection(server iface.IServer, conn *net.TCPConn, connID uint32, msgHa
 	}
 	c.TCPServer.GetConnMgr().Add(c)
 	return c
+}
+
+func (c *Connection) StartWriter() {
+	c.TCPServer.Logger().Debug("conn writer is running", zap.String("address", c.RemoteAddr().String()))
+	defer c.TCPServer.Logger().Debug("conn writer is exit", zap.String("address", c.RemoteAddr().String()))
+	for {
+		select {
+		case data, ok := <-c.msgBuffChan:
+			if ok {
+				if _, err := c.Conn.Write(data); err != nil {
+					c.TCPServer.Logger().Warn("send buff to connection error,conn writer will be exit", zap.Error(err))
+					return
+				}
+			} else {
+				c.TCPServer.Logger().Warn("conection msg buff chan is closed")
+				break
+			}
+		case <-c.ctx.Done():
+			c.TCPServer.Logger().Info("writer is done")
+			return
+		}
+	}
+}
+
+func (c *Connection) StartReader() {
+	c.TCPServer.Logger().Debug("conn reader is running", zap.String("address", c.RemoteAddr().String()))
+	defer c.TCPServer.Logger().Info("conn reader is exit", zap.String("address", c.RemoteAddr().String()))
+	defer c.Stop()
+	for {
+		select {
+		case <-c.ctx.Done():
+			c.TCPServer.Logger().Info("conn reader is done")
+			return
+		default:
+			headData := make([]byte, c.TCPServer.Packet().GetHeadLen())
+			if _, err := io.ReadFull(c.Conn, headData); err != nil {
+				c.TCPServer.Logger().Warn("read msg head err", zap.Error(err))
+				return
+			}
+			msg, err := c.TCPServer.Packet().Unpack(headData)
+			if err != nil {
+				c.TCPServer.Logger().Error("unpacket err", zap.Error(err))
+				return
+			}
+			var data []byte
+			if msg.GetDataLen() > 0 {
+				data = make([]byte, msg.GetDataLen())
+				if _, err := io.ReadFull(c.Conn, data); err != nil {
+					c.TCPServer.Logger().Error("read msg data err", zap.Error(err))
+					return
+				}
+			}
+			msg.SetData(data)
+			req := Requset{
+				conn: c,
+				msg:  msg,
+			}
+			if config.GlobalObj.WorkerPoolSize > 0 {
+				//已经启动工作池机制，将消息交给Worker处理
+				c.MsgHandler.SendMsgToTaskQueue(&req)
+			} else {
+				//从绑定好的消息和对应的处理方法中执行对应的Handle方法
+				go c.MsgHandler.DoMsgHandler(&req)
+			}
+		}
+	}
 }
 
 func (c *Connection) Start() {

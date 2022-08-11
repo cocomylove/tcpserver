@@ -1,5 +1,7 @@
 package iface
 
+import "go.uber.org/zap"
+
 type IServer interface {
 	Start()                                 //启动服务器方法
 	Stop()                                  //停止服务器方法
@@ -11,4 +13,5 @@ type IServer interface {
 	CallOnConnStart(conn IConnection)       //调用连接OnConnStart Hook函数
 	CallOnConnStop(conn IConnection)        //调用连接OnConnStop Hook函数
 	Packet() IDataPack
+	Logger() *zap.Logger
 }
