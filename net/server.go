@@ -43,7 +43,7 @@ func NewServer(logger *zap.Logger, opt ...Option) *Server {
 		IP:         config.GlobalObj.Host,
 		Port:       config.GlobalObj.TCPPort,
 		msgHandler: NewMessageHandler(logger),
-		ConnMgr:    NewConnManager(),
+		ConnMgr:    NewConnManager(logger),
 		packet:     NewDataPack(),
 		logger:     logger,
 	}
