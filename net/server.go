@@ -39,7 +39,7 @@ func NewServer(logger *zap.Logger, opt ...Option) *Server {
 	printLogo()
 	s := &Server{
 		Name:       config.GlobalObj.Name,
-		IPVersion:  "TCPv4",
+		IPVersion:  "tcp4",
 		IP:         config.GlobalObj.Host,
 		Port:       config.GlobalObj.TCPPort,
 		msgHandler: NewMessageHandler(logger),
@@ -93,31 +93,41 @@ func (s *Server) Start() {
 	}()
 }
 func (s *Server) Stop() {
+	s.logger.Warn("stop the server...")
+	s.ConnMgr.ClearConn()
 
 }
 func (s *Server) Serve() {
-
+	s.Start()
+	//TODO: 启动后，需要加载的事情
+	select {}
 }
 func (s *Server) AddRouter(msgID uint32, router iface.IRouter) {
-
+	s.msgHandler.AddRouter(msgID, router)
 }
 func (s *Server) GetConnMgr() iface.IConnManager {
-	return nil
+	return s.ConnMgr
 }
-func (s *Server) SetOnConnStart(func(iface.IConnection)) {
-
+func (s *Server) SetOnConnStart(hook func(iface.IConnection)) {
+	s.OnConnStart = hook
 }
-func (s *Server) SetOnConnStop(func(iface.IConnection)) {
-
+func (s *Server) SetOnConnStop(hook func(iface.IConnection)) {
+	s.OnConnStop = hook
 }
 func (s *Server) CallOnConnStart(conn iface.IConnection) {
-
+	if s.OnConnStart != nil {
+		s.logger.Debug("start on conn...")
+		s.OnConnStart(conn)
+	}
 }
 func (s *Server) CallOnConnStop(conn iface.IConnection) {
-
+	if s.OnConnStop != nil {
+		s.logger.Debug("start on conn...")
+		s.OnConnStop(conn)
+	}
 }
 func (s *Server) Packet() iface.IDataPack {
-	return nil
+	return s.packet
 }
 
 func (s *Server) Logger() *zap.Logger {
