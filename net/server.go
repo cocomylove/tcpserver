@@ -35,16 +35,17 @@ type Server struct {
 	logger *zap.Logger
 }
 
-func NewServer(opt ...Option) *Server {
+func NewServer(logger *zap.Logger, opt ...Option) *Server {
 	printLogo()
 	s := &Server{
 		Name:       config.GlobalObj.Name,
 		IPVersion:  "TCPv4",
 		IP:         config.GlobalObj.Host,
 		Port:       config.GlobalObj.TCPPort,
-		msgHandler: NewMsgHandler(),
+		msgHandler: NewMessageHandler(logger),
 		ConnMgr:    NewConnManager(),
 		packet:     NewDataPack(),
+		logger:     logger,
 	}
 	for _, o := range opt {
 		o(s)
