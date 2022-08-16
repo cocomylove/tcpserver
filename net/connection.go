@@ -2,9 +2,11 @@ package net
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/cocomylove/tcpserver/iface"
 	"github.com/cocomylove/tcpserver/utils/config"
@@ -114,10 +116,20 @@ func (c *Connection) StartReader() {
 }
 
 func (c *Connection) Start() {
+	c.TCPServer.Logger().Debug("starting conn ", zap.Uint32("connID", c.GetConnID()))
+	c.ctx, c.cancel = context.WithCancel(context.Background())
+	go c.StartReader()
+	go c.StartWriter()
+	c.TCPServer.CallOnConnStart(c)
+	select {
+	case <-c.ctx.Done():
+		c.finalizer()
+		return
+	}
 
 }
 func (c *Connection) Stop() {
-
+	c.cancel()
 }
 func (c *Connection) Context() context.Context {
 	return c.ctx
@@ -131,11 +143,48 @@ func (c *Connection) GetConnID() uint32 {
 func (c *Connection) RemoteAddr() net.Addr {
 	return c.Conn.RemoteAddr()
 }
+
+// 同步调用，最好不用
 func (c *Connection) SendMsg(msgID uint32, data []byte) error {
-	return nil
+	c.RLock()
+	defer c.RUnlock()
+	if c.isClosed == true {
+		return errors.New("conn is closed where send msg")
+	}
+	dp := c.TCPServer.Packet()
+	msg, err := dp.Pack(NewMessage(msgID, data))
+	if err != nil {
+		c.TCPServer.Logger().Warn("Pack error msg", zap.Error(err))
+		return errors.New("Pack error msg ")
+	}
+	_, err = c.Conn.Write(msg)
+	return err
 }
 func (c *Connection) SendBuffMsg(msgID uint32, data []byte) error {
-	return nil
+	c.RLock()
+	defer c.RUnlock()
+	idleTimeout := time.NewTimer(5 * time.Millisecond)
+	defer idleTimeout.Stop()
+
+	if c.isClosed == true {
+		return errors.New("Connection closed when send buff msg")
+	}
+
+	//将data封包，并且发送
+	dp := c.TCPServer.Packet()
+	msg, err := dp.Pack(NewMessage(msgID, data))
+	if err != nil {
+		c.TCPServer.Logger().Warn("Pack error msg", zap.Error(err))
+		return errors.New("Pack error msg ")
+	}
+
+	// 发送超时
+	select {
+	case <-idleTimeout.C:
+		return errors.New("send buff msg timeout")
+	case c.msgBuffChan <- msg:
+		return nil
+	}
 }
 func (c *Connection) SetProperty(key string, value interface{}) {
 
@@ -146,4 +195,30 @@ func (c *Connection) GetProperty(key string) (interface{}, error) {
 }
 func (c *Connection) RemoveProperty(key string) {
 
+}
+
+func (c *Connection) finalizer() {
+	//如果用户注册了该链接的关闭回调业务，那么在此刻应该显示调用
+	c.TCPServer.CallOnConnStop(c)
+
+	c.Lock()
+	defer c.Unlock()
+
+	//如果当前链接已经关闭
+	if c.isClosed == true {
+		return
+	}
+
+	c.TCPServer.Logger().Debug("Conn Stop()... ", zap.Uint32("connID", c.ConnID))
+
+	// 关闭socket链接
+	_ = c.Conn.Close()
+
+	//将链接从连接管理器中删除
+	c.TCPServer.GetConnMgr().Remove(c)
+
+	//关闭该链接全部管道
+	close(c.msgBuffChan)
+	//设置标志位
+	c.isClosed = true
 }
