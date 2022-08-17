@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strconv"
 	"testing"
 	"time"
 
@@ -36,7 +37,7 @@ func TestServer(t *testing.T) {
 	// go ClientTest(2)
 
 	select {
-	case <-time.After(time.Second * 60):
+	case <-time.After(time.Second * 120):
 		return
 	}
 }
@@ -51,10 +52,11 @@ func ClientTest(i uint32) {
 		fmt.Println("client start err, exit!", err)
 		return
 	}
-
+	j := 0
 	for {
+
 		dp := NewDataPack()
-		msg, _ := dp.Pack(NewMessage(i, []byte("client test message")))
+		msg, _ := dp.Pack(NewMessage(i, []byte("client test message+"+strconv.Itoa(j))))
 		_, err := conn.Write(msg)
 		if err != nil {
 			fmt.Println("client write err: ", err)
@@ -91,7 +93,8 @@ func ClientTest(i uint32) {
 			fmt.Printf("==> Client receive Msg: ID = %d, len = %d , data = %s\n", msg.ID, msg.DataLen, msg.Data)
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(1 * time.Millisecond)
+		j++
 	}
 }
 
@@ -160,8 +163,10 @@ func DoConnectionLost(conn iface.IConnection) {
 func TestClient(t *testing.T) {
 	go ClientTest(1)
 	go ClientTest(2)
+	go ClientTest(1)
+	go ClientTest(1)
 	select {
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 60):
 		return
 	}
 }

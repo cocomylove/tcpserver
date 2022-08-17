@@ -32,6 +32,9 @@ func (m *MessageHandler) DoMsgHandler(request iface.IRequest) {
 	handler.PreHandle(request)
 	handler.Handle(request)
 	handler.PostHandle(request)
+	request = &Requset{}
+	requestPool.Put(request)
+
 }
 func (m *MessageHandler) AddRouter(msgID uint32, router iface.IRouter) {
 	m.Apis[msgID] = router

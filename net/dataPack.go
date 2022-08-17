@@ -36,7 +36,9 @@ func (dp *DataPack) Pack(msg iface.IMessage) ([]byte, error) {
 }
 func (dp *DataPack) Unpack(data []byte) (iface.IMessage, error) {
 	dataBuf := bytes.NewReader(data)
-	msg := &Message{}
+
+	msg := msgPool.Get().(*Message)
+
 	if err := binary.Read(dataBuf, binary.LittleEndian, &msg.DataLen); err != nil {
 		return nil, err
 	}

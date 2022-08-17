@@ -1,6 +1,10 @@
 package net
 
-import "github.com/cocomylove/tcpserver/iface"
+import (
+	"sync"
+
+	"github.com/cocomylove/tcpserver/iface"
+)
 
 type Requset struct {
 	conn iface.IConnection //已经和客户端建立好的 链接
@@ -15,4 +19,14 @@ func (r *Requset) GetData() []byte {
 }
 func (r *Requset) GetMsgID() uint32 {
 	return r.msg.GetMsgID()
+}
+
+var requestPool sync.Pool
+
+func init() {
+	requestPool = sync.Pool{
+		New: func() any {
+			return &Requset{}
+		},
+	}
 }

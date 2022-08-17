@@ -100,16 +100,17 @@ func (c *Connection) StartReader() {
 				}
 			}
 			msg.SetData(data)
-			req := Requset{
-				conn: c,
-				msg:  msg,
-			}
+
+			req := requestPool.Get().(*Requset)
+			req.conn = c
+			req.msg = msg
+
 			if config.GlobalObj.WorkerPoolSize > 0 {
 				//已经启动工作池机制，将消息交给Worker处理
-				c.MsgHandler.SendMsgToTaskQueue(&req)
+				c.MsgHandler.SendMsgToTaskQueue(req)
 			} else {
 				//从绑定好的消息和对应的处理方法中执行对应的Handle方法
-				go c.MsgHandler.DoMsgHandler(&req)
+				go c.MsgHandler.DoMsgHandler(req)
 			}
 		}
 	}
@@ -152,6 +153,7 @@ func (c *Connection) SendMsg(msgID uint32, data []byte) error {
 		return errors.New("conn is closed where send msg")
 	}
 	dp := c.TCPServer.Packet()
+
 	msg, err := dp.Pack(NewMessage(msgID, data))
 	if err != nil {
 		c.TCPServer.Logger().Warn("Pack error msg", zap.Error(err))
@@ -172,7 +174,17 @@ func (c *Connection) SendBuffMsg(msgID uint32, data []byte) error {
 
 	//将data封包，并且发送
 	dp := c.TCPServer.Packet()
-	msg, err := dp.Pack(NewMessage(msgID, data))
+
+	message := msgPool.Get().(*Message)
+	// 回收message
+	defer func() {
+		message = &Message{}
+		msgPool.Put(message)
+	}()
+	message.ID = msgID
+	message.DataLen = uint32(len(data))
+	message.Data = data
+	msg, err := dp.Pack(message)
 	if err != nil {
 		c.TCPServer.Logger().Warn("Pack error msg", zap.Error(err))
 		return errors.New("Pack error msg ")

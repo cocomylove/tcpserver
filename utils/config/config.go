@@ -1,6 +1,8 @@
 package config
 
-import "github.com/cocomylove/tcpserver/iface"
+import (
+	"github.com/cocomylove/tcpserver/iface"
+)
 
 type GlobalObject struct {
 	TCPServer iface.IServer //当前Zinx的全局Server对象
@@ -26,6 +28,7 @@ type GlobalObject struct {
 	LogDir  string //日志所在文件夹 默认"./log"
 	LogFile string //日志文件名称   默认""  --如果没有设置日志文件，打印信息将打印至stderr
 	LogLeve string //debug info warn  error -- 默认打开debug信息
+
 }
 
 var GlobalObj *GlobalObject

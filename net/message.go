@@ -1,9 +1,21 @@
 package net
 
+import "sync"
+
 type Message struct {
 	DataLen uint32 //消息的长度
 	ID      uint32 //消息的ID
 	Data    []byte //消息的内容
+}
+
+var msgPool sync.Pool
+
+func init() {
+	msgPool = sync.Pool{
+		New: func() any {
+			return &Message{}
+		},
+	}
 }
 
 func NewMessage(id uint32, data []byte) *Message {
