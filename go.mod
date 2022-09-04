@@ -2,7 +2,10 @@ module github.com/cocomylove/tcpserver
 
 go 1.18
 
-require go.uber.org/zap v1.21.0
+require (
+	github.com/gorilla/websocket v1.0.0
+	go.uber.org/zap v1.21.0
+)
 
 require (
 	go.uber.org/atomic v1.7.0 // indirect

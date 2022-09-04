@@ -20,7 +20,7 @@ func TestServer(t *testing.T) {
 	conf := zap.NewDevelopmentConfig()
 	log, _ := conf.Build()
 	//创建一个server句柄
-	s := NewServer(log)
+	s := NewWSServer(log)
 
 	//注册链接hook回调函数
 	s.SetOnConnStart(DoConnectionBegin)
@@ -31,7 +31,7 @@ func TestServer(t *testing.T) {
 	s.AddRouter(2, &HelloRouter{})
 
 	//2 开启服务
-	go s.Serve()
+	s.Serve()
 	//	客户端测试
 	// go ClientTest(1)
 	// go ClientTest(2)
@@ -106,7 +106,7 @@ type PingRouter struct {
 //Test PreHandle
 func (this *PingRouter) PreHandle(request iface.IRequest) {
 	fmt.Println("Call pingRouter PreHandle")
-	err := request.GetConnection().SendMsg(1, []byte("before ping ....\n"))
+	err := request.GetConnection().SendBuffMsg(1, []byte("before ping ....\n"))
 	if err != nil {
 		fmt.Println("preHandle SendMsg err: ", err)
 	}
@@ -118,7 +118,7 @@ func (this *PingRouter) Handle(request iface.IRequest) {
 	//先读取客户端的数据，再回写ping...ping...ping
 	fmt.Println("recv from client : msgID=", request.GetMsgID(), ", data=", string(request.GetData()))
 
-	err := request.GetConnection().SendMsg(1, []byte("ping...ping...ping\n"))
+	err := request.GetConnection().SendBuffMsg(1, []byte("ping...ping...ping\n"))
 	if err != nil {
 		fmt.Println("Handle SendMsg err: ", err)
 	}
@@ -127,7 +127,7 @@ func (this *PingRouter) Handle(request iface.IRequest) {
 //Test PostHandle
 func (this *PingRouter) PostHandle(request iface.IRequest) {
 	fmt.Println("Call Router PostHandle")
-	err := request.GetConnection().SendMsg(1, []byte("After ping .....\n"))
+	err := request.GetConnection().SendBuffMsg(1, []byte("After ping .....\n"))
 	if err != nil {
 		fmt.Println("Post SendMsg err: ", err)
 	}
@@ -141,7 +141,7 @@ func (this *HelloRouter) Handle(request iface.IRequest) {
 	fmt.Println("call helloRouter Handle")
 	fmt.Printf("receive from client msgID=%d, data=%s\n", request.GetMsgID(), string(request.GetData()))
 
-	err := request.GetConnection().SendMsg(2, []byte("hello zix hello Router"))
+	err := request.GetConnection().SendBuffMsg(2, []byte("hello zix hello Router"))
 	if err != nil {
 		fmt.Println(err)
 	}

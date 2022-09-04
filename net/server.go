@@ -33,6 +33,8 @@ type Server struct {
 	packet iface.IDataPack
 
 	logger *zap.Logger
+
+	task iface.ITask
 }
 
 func NewServer(logger *zap.Logger, opt ...Option) *Server {

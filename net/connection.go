@@ -10,6 +10,7 @@ import (
 
 	"github.com/cocomylove/tcpserver/iface"
 	"github.com/cocomylove/tcpserver/utils/config"
+	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
@@ -137,6 +138,10 @@ func (c *Connection) Context() context.Context {
 }
 func (c *Connection) GetTCPConnection() *net.TCPConn {
 	return c.Conn
+}
+
+func (c *Connection) GetWSConnection() *websocket.Conn {
+	return nil
 }
 func (c *Connection) GetConnID() uint32 {
 	return c.ConnID

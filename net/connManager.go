@@ -31,8 +31,8 @@ func (cm *ConnManager) Remove(conn iface.IConnection) {
 	cm.connLock.Lock()
 	delete(cm.connections, conn.GetConnID())
 	cm.connLock.Unlock()
-
 }
+
 func (cm *ConnManager) Get(connID uint32) (iface.IConnection, error) {
 	cm.connLock.RLock()
 	defer cm.connLock.RUnlock()

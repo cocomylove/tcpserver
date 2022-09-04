@@ -3,9 +3,9 @@ package net
 import "sync"
 
 type Message struct {
-	DataLen uint32 //消息的长度
-	ID      uint32 //消息的ID
-	Data    []byte //消息的内容
+	DataLen uint32 `json:"data_len,omitempty"` //消息的长度
+	ID      uint32 `json:"id,omitempty"`       //消息的ID
+	Data    []byte `json:"data,omitempty"`     //消息的内容
 }
 
 var msgPool sync.Pool
@@ -42,5 +42,30 @@ func (m *Message) SetData(data []byte) {
 	m.Data = data
 }
 func (m *Message) SetDataLen(length uint32) {
+	m.DataLen = length
+}
+
+type WsMessage struct {
+	DataLen uint32 `json:"data_len,omitempty"` //消息的长度
+	ID      uint32 `json:"id,omitempty"`       //消息的ID
+	Data    string `json:"data,omitempty"`     //消息的内容
+}
+
+func (m *WsMessage) GetDataLen() uint32 {
+	return m.DataLen
+}
+func (m *WsMessage) GetMsgID() uint32 {
+	return m.ID
+}
+func (m *WsMessage) GetData() []byte {
+	return []byte(m.Data)
+}
+func (m *WsMessage) SetMsgID(id uint32) {
+	m.ID = id
+}
+func (m *WsMessage) SetData(data []byte) {
+	m.Data = string(data)
+}
+func (m *WsMessage) SetDataLen(length uint32) {
 	m.DataLen = length
 }
