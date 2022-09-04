@@ -5,16 +5,16 @@ import (
 	"sync"
 
 	"github.com/cocomylove/tcpserver/iface"
-	"go.uber.org/zap"
+	"github.com/cocomylove/tcpserver/ilog"
 )
 
 type ConnManager struct {
 	connections map[uint32]iface.IConnection
 	connLock    sync.RWMutex
-	logger      *zap.Logger
+	logger      ilog.Logger
 }
 
-func NewConnManager(logger *zap.Logger) *ConnManager {
+func NewConnManager(logger ilog.Logger) *ConnManager {
 	cm := &ConnManager{
 		connections: make(map[uint32]iface.IConnection),
 		logger:      logger,

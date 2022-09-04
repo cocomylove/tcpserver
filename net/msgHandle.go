@@ -2,6 +2,7 @@ package net
 
 import (
 	"github.com/cocomylove/tcpserver/iface"
+	"github.com/cocomylove/tcpserver/ilog"
 	"github.com/cocomylove/tcpserver/utils/config"
 	"go.uber.org/zap"
 )
@@ -10,10 +11,10 @@ type MessageHandler struct {
 	Apis       map[uint32]iface.IRouter
 	WorkerPool uint32
 	TaskQueue  []chan iface.IRequest
-	logger     *zap.Logger
+	logger     ilog.Logger
 }
 
-func NewMessageHandler(logger *zap.Logger) *MessageHandler {
+func NewMessageHandler(logger ilog.Logger) *MessageHandler {
 	mh := &MessageHandler{
 		Apis:       make(map[uint32]iface.IRouter),
 		WorkerPool: config.GlobalObj.WorkerPoolSize,

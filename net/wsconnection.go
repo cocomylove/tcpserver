@@ -3,8 +3,10 @@ package net
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/cocomylove/tcpserver/iface"
 	"github.com/cocomylove/tcpserver/utils/config"
@@ -41,6 +43,7 @@ type WsConnection struct {
 }
 
 func NewWsConnection(s iface.IServer, conn *websocket.Conn, connID uint32, mh iface.IMsgHandle) *WsConnection {
+	ctx, cancel := context.WithCancel(context.Background())
 	wsc := &WsConnection{
 		WsServer:    s,
 		Conn:        conn,
@@ -48,7 +51,8 @@ func NewWsConnection(s iface.IServer, conn *websocket.Conn, connID uint32, mh if
 		isClosed:    false,
 		msgBuffChan: make(chan []byte, config.GlobalObj.MaxMsgChanLen),
 		msgChan:     make(chan []byte, 1),
-		ctx:         context.Background(),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 	s.GetConnMgr().Add(wsc)
 	return wsc
@@ -89,11 +93,31 @@ readError:
 	ws.Stop()
 readClose:
 }
-func (ws *WsConnection) StartWriter() {}
+func (ws *WsConnection) StartWriter() {
+	ws.WsServer.Logger().Debug("conn writer is running", zap.String("address", ws.RemoteAddr().String()))
+	defer ws.WsServer.Logger().Debug("conn writer is exit", zap.String("address", ws.RemoteAddr().String()))
+	for {
+		select {
+		case data, ok := <-ws.msgBuffChan:
+			if ok {
+				if err := ws.Conn.WriteMessage(1, data); err != nil {
+					ws.WsServer.Logger().Warn("send buff to connection error,conn writer will be exit", zap.Error(err))
+					return
+				}
+			} else {
+				ws.WsServer.Logger().Warn("conection msg buff chan is closed")
+				break
+			}
+		case <-ws.ctx.Done():
+			ws.WsServer.Logger().Info("writer is done")
+			return
+		}
+	}
+}
 
 func (ws *WsConnection) Start() {
 	go ws.StartReader()
-	// 如果任务没启动就开启
+	go ws.StartWriter()
 
 	ws.WsServer.CallOnConnStart(ws)
 }
@@ -111,14 +135,49 @@ func (ws *WsConnection) GetConnID() uint32 {
 	return ws.ConnID
 }
 func (ws *WsConnection) RemoteAddr() net.Addr {
-	return ws.RemoteAddr()
+	return ws.Conn.RemoteAddr()
 }
 func (ws *WsConnection) SendMsg(msgID uint32, data []byte) error {
-	ws.Conn.WriteMessage(int(msgID), data)
+	ws.RLock()
+	defer ws.RUnlock()
+	if ws.isClosed == true {
+		return errors.New("conn is closed where send msg")
+	}
+	if err := ws.Conn.WriteMessage(int(msgID), data); err != nil {
+		return err
+	}
 	return nil
 }
 func (ws *WsConnection) SendBuffMsg(msgID uint32, data []byte) error {
-	return nil
+	ws.RLock()
+	defer ws.RUnlock()
+	idleTimeout := time.NewTimer(5 * time.Millisecond)
+	defer idleTimeout.Stop()
+
+	if ws.isClosed == true {
+		return errors.New("Connection closed when send buff msg")
+	}
+	// message := msgPool.Get().(*Message)
+	// // 回收message
+	// defer func() {
+	// 	message = &Message{}
+	// 	msgPool.Put(message)
+	// }()
+	message := WsMessage{}
+	message.ID = msgID
+	message.Data = string(data)
+	//TODO:这里要换成proto编码
+	msg, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+	// 发送超时
+	select {
+	case <-idleTimeout.C:
+		return errors.New("send buff msg timeout")
+	case ws.msgBuffChan <- msg:
+		return nil
+	}
 }
 func (ws *WsConnection) SetProperty(key string, value interface{}) {
 

@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/cocomylove/tcpserver/iface"
+	"github.com/cocomylove/tcpserver/ilog"
 	"github.com/cocomylove/tcpserver/utils/config"
 	"go.uber.org/zap"
 )
@@ -32,12 +33,12 @@ type Server struct {
 
 	packet iface.IDataPack
 
-	logger *zap.Logger
+	logger ilog.Logger
 
 	task iface.ITask
 }
 
-func NewServer(logger *zap.Logger, opt ...Option) *Server {
+func NewServer(logger ilog.Logger, opt ...Option) *Server {
 	printLogo()
 	s := &Server{
 		Name:       config.GlobalObj.Name,
@@ -70,7 +71,8 @@ func (s *Server) Start() {
 		}
 		listener, err := net.ListenTCP(s.IPVersion, addres)
 		if err != nil {
-			s.logger.Panic("", zap.Error(err))
+			s.logger.Error("", zap.Error(err))
+			return
 		}
 		s.logger.Info("Server start succ....", zap.String("name", s.Name))
 
@@ -132,6 +134,9 @@ func (s *Server) Packet() iface.IDataPack {
 	return s.packet
 }
 
-func (s *Server) Logger() *zap.Logger {
+func (s *Server) Logger() ilog.Logger {
 	return s.logger
+}
+func (s *Server) SetLogger(logger ilog.Logger) {
+	s.logger = logger
 }

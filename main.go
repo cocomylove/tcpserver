@@ -52,7 +52,7 @@ func (br *Ping) PreHandle(req iface.IRequest) {}
 func (br *Ping) Handle(req iface.IRequest) {
 	log.Println(string(req.GetData()))
 	for i := 0; i < 100; i++ {
-		req.GetConnection().SendMsg(req.GetMsgID(), []byte(strconv.Itoa(i)))
+		req.GetConnection().SendBuffMsg(req.GetMsgID(), []byte(strconv.Itoa(i)))
 	}
 
 }

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/cocomylove/tcpserver/iface"
+	"github.com/cocomylove/tcpserver/ilog"
 	"github.com/cocomylove/tcpserver/utils/config"
 	"go.uber.org/zap"
 
@@ -37,7 +38,7 @@ type WsServer struct {
 
 	// 任务
 	task   iface.ITask
-	logger *zap.Logger
+	logger ilog.Logger
 }
 
 var upgrader = websocket.Upgrader{
@@ -87,7 +88,7 @@ func (s *WsServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *WsServer) Start() {
-	s.logger.Sugar().Infof("server start name: %s,scheme:%s,ip:%s,port:%d, path:%s", s.Name, s.Scheme, s.IP, s.Port, s.Path)
+	s.logger.Info("server start ", zap.String("name", s.Name))
 	go s.msgHandler.StartWorkerPool()
 	http.HandleFunc("/"+s.Path, s.wsHandler)
 	err := http.ListenAndServe(s.IP+":"+strconv.Itoa(s.Port), nil)
@@ -146,6 +147,10 @@ func (s *WsServer) CallOnConnStop(conn iface.IConnection) {
 func (s *WsServer) Packet() iface.IDataPack {
 	return nil
 }
-func (s *WsServer) Logger() *zap.Logger {
+func (s *WsServer) Logger() ilog.Logger {
 	return s.logger
+}
+
+func (s *WsServer) SetLogger(logger ilog.Logger) {
+	s.logger = logger
 }

@@ -1,6 +1,8 @@
 package iface
 
-import "go.uber.org/zap"
+import (
+	"github.com/cocomylove/tcpserver/ilog"
+)
 
 type IServer interface {
 	Start()                                 //启动服务器方法
@@ -13,5 +15,6 @@ type IServer interface {
 	CallOnConnStart(conn IConnection)       //调用连接OnConnStart Hook函数
 	CallOnConnStop(conn IConnection)        //调用连接OnConnStop Hook函数
 	Packet() IDataPack
-	Logger() *zap.Logger
+	Logger() ilog.Logger
+	SetLogger(logger ilog.Logger)
 }
