@@ -1,4 +1,4 @@
-package main
+package tcpserver
 
 import (
 	"github.com/cocomylove/tcpserver/iface"
