@@ -37,7 +37,6 @@ type WsServer struct {
 	Path string
 
 	// 任务
-	task   iface.ITask
 	logger ilog.Logger
 }
 
@@ -120,14 +119,7 @@ func (s *WsServer) CallOnConnStart(conn iface.IConnection) {
 	if s.OnConnStart != nil {
 		s.OnConnStart(conn)
 	}
-	if s.task == nil {
-		return
-	}
-	if !s.task.Status() {
-		if err := s.task.Run(); err != nil {
-			s.logger.Error("start task failed", zap.Error(err))
-		}
-	}
+
 }
 func (s *WsServer) CallOnConnStop(conn iface.IConnection) {
 	if s.OnConnStop != nil {
@@ -135,14 +127,6 @@ func (s *WsServer) CallOnConnStop(conn iface.IConnection) {
 
 	}
 
-	if s.task == nil {
-		return
-	}
-	if s.ConnMgr.Len() == 0 {
-		if err := s.task.StopTask(); err != nil {
-			s.logger.Error("stop task failed", zap.Error(err))
-		}
-	}
 }
 func (s *WsServer) Packet() iface.IDataPack {
 	return nil
