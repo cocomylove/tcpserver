@@ -53,6 +53,7 @@ func NewWsConnection(s iface.IServer, conn *websocket.Conn, connID uint32, mh if
 		msgChan:     make(chan []byte, 1),
 		ctx:         ctx,
 		cancel:      cancel,
+		ConnID:      connID,
 	}
 	s.GetConnMgr().Add(wsc)
 	return wsc
@@ -118,10 +119,16 @@ func (ws *WsConnection) StartWriter() {
 func (ws *WsConnection) Start() {
 	go ws.StartReader()
 	go ws.StartWriter()
-
 	ws.WsServer.CallOnConnStart(ws)
+	select {
+	case <-ws.ctx.Done():
+		ws.finalizer()
+		return
+	}
 }
-func (ws *WsConnection) Stop() {}
+func (ws *WsConnection) Stop() {
+	ws.cancel()
+}
 func (ws *WsConnection) Context() context.Context {
 	return ws.ctx
 }
@@ -148,6 +155,9 @@ func (ws *WsConnection) SendMsg(msgID uint32, data []byte) error {
 	}
 	return nil
 }
+
+// ws发送的数据，全部使用[]byte 序列化方式由业务方面决定
+// 通讯只关注数据本身
 func (ws *WsConnection) SendBuffMsg(msgID uint32, data []byte) error {
 	ws.RLock()
 	defer ws.RUnlock()
@@ -157,25 +167,11 @@ func (ws *WsConnection) SendBuffMsg(msgID uint32, data []byte) error {
 	if ws.isClosed == true {
 		return errors.New("Connection closed when send buff msg")
 	}
-	// message := msgPool.Get().(*Message)
-	// // 回收message
-	// defer func() {
-	// 	message = &Message{}
-	// 	msgPool.Put(message)
-	// }()
-	message := WsMessage{}
-	message.ID = msgID
-	message.Data = string(data)
-	//TODO:这里要换成proto编码
-	msg, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
 	// 发送超时
 	select {
 	case <-idleTimeout.C:
 		return errors.New("send buff msg timeout")
-	case ws.msgBuffChan <- msg:
+	case ws.msgBuffChan <- data:
 		return nil
 	}
 }
@@ -187,4 +183,29 @@ func (ws *WsConnection) GetProperty(key string) (interface{}, error) {
 }
 func (ws *WsConnection) RemoveProperty(key string) {
 
+}
+
+func (c *WsConnection) finalizer() {
+	//如果用户注册了该链接的关闭回调业务，那么在此刻应该显示调用
+	c.WsServer.CallOnConnStop(c)
+
+	c.Lock()
+	defer c.Unlock()
+
+	//如果当前链接已经关闭
+	if c.isClosed == true {
+		return
+	}
+
+	c.WsServer.Logger().Debug("Conn Stop()... ", zap.Uint32("connID", c.ConnID))
+
+	// 关闭socket链接
+	_ = c.Conn.Close()
+
+	//将链接从连接管理器中删除
+	c.WsServer.GetConnMgr().Remove(c)
+	//关闭该链接全部管道
+	close(c.msgBuffChan)
+	//设置标志位
+	c.isClosed = true
 }

@@ -40,7 +40,7 @@ func InitGlobal() {
 		Version:          "V1.0",
 		TCPPort:          8999,
 		Host:             "0.0.0.0",
-		MaxConn:          12000,
+		MaxConn:          50,
 		MaxPacketSize:    2048,
 		ConfFilePath:     "",
 		WorkerPoolSize:   10,

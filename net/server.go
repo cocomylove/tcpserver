@@ -34,8 +34,6 @@ type Server struct {
 	packet iface.IDataPack
 
 	logger ilog.Logger
-
-	task iface.ITask
 }
 
 func NewServer(logger ilog.Logger, opt ...Option) *Server {

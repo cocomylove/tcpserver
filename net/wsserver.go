@@ -1,6 +1,7 @@
 package net
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -38,6 +39,9 @@ type WsServer struct {
 
 	// 任务
 	logger ilog.Logger
+
+	// connid 管理
+	connId *ConnId
 }
 
 var upgrader = websocket.Upgrader{
@@ -61,10 +65,39 @@ func NewWSServer(logger *zap.Logger) *WsServer {
 		// packet:     NewDataPack(),
 		Path:   "feature",
 		logger: logger,
+		connId: NewConnId(),
 	}
 }
 
-var cid uint32
+// 因为 connections 这个map删除key并非真正意义上的删除，为防止map内存泄露
+// 固定key的值以及数量，可以方便map重用内存空间
+type ConnId struct {
+	bucket []uint32
+	// maxConnId int
+}
+
+func NewConnId() *ConnId {
+	c := &ConnId{
+		bucket: make([]uint32, 0, config.GlobalObj.MaxConn),
+	}
+
+	for i := 0; i < config.GlobalObj.MaxConn; i++ {
+		c.bucket = append(c.bucket, uint32(i))
+	}
+	return c
+}
+
+func (c *ConnId) Get() uint32 {
+	id := c.bucket[0]
+	c.bucket = c.bucket[1:]
+
+	return id
+}
+
+func (c *ConnId) Put(id uint32) {
+	c.bucket = append(c.bucket, id)
+	log.Println("回收后bucket大小: ", len(c.bucket))
+}
 
 func (s *WsServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -75,18 +108,23 @@ func (s *WsServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if s.ConnMgr.Len() >= config.GlobalObj.MaxConn {
 		s.logger.Warn("server wsHandler too many connection", zap.Int("maxConn", config.GlobalObj.MaxConn))
+
 		s.OnMaxConn(conn)
 		conn.Close()
 		return
 	}
 	s.logger.Debug("server wsHandler a new conn ", zap.String("remoteAddr", conn.RemoteAddr().String()))
-	dealConn := NewWsConnection(s, conn, cid, s.msgHandler)
+	id := s.connId.Get()
+	s.logger.Debug("conid ", zap.Uint32("connid", id))
+	dealConn := NewWsConnection(s, conn, id, s.msgHandler)
 	go dealConn.Start()
-	cid++
 
 }
 
 func (s *WsServer) Start() {
+	s.OnMaxConn = func(conn *websocket.Conn) {
+		conn.Close()
+	}
 	s.logger.Info("server start ", zap.String("name", s.Name))
 	go s.msgHandler.StartWorkerPool()
 	http.HandleFunc("/"+s.Path, s.wsHandler)
@@ -124,8 +162,9 @@ func (s *WsServer) CallOnConnStart(conn iface.IConnection) {
 func (s *WsServer) CallOnConnStop(conn iface.IConnection) {
 	if s.OnConnStop != nil {
 		s.OnConnStop(conn)
-
 	}
+	// 回收id
+	s.connId.Put(conn.GetConnID())
 
 }
 func (s *WsServer) Packet() iface.IDataPack {
