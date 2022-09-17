@@ -2,7 +2,7 @@ package tcpserver
 
 import (
 	"github.com/cocomylove/tcpserver/iface"
-	"github.com/cocomylove/tcpserver/net"
+	"github.com/cocomylove/tcpserver/server"
 	"github.com/cocomylove/tcpserver/utils/config"
 	"go.uber.org/zap"
 )
@@ -12,7 +12,7 @@ func NewTCPDefault() iface.IServer {
 	conf := zap.NewDevelopmentConfig()
 	log, _ := conf.Build()
 	//创建一个server句柄
-	return net.NewServer(log)
+	return server.NewServer(log)
 }
 
 func NewWsDefault() iface.IServer {
@@ -20,12 +20,12 @@ func NewWsDefault() iface.IServer {
 	conf := zap.NewDevelopmentConfig()
 	log, _ := conf.Build()
 	//创建一个server句柄
-	return net.NewWSServer(log)
+	return server.NewWSServer(log)
 }
 
 func NewWSServerWithConfig(cnf config.GlobalObject) iface.IServer {
 	config.GlobalObj = &cnf
 	conf := zap.NewDevelopmentConfig()
 	log, _ := conf.Build()
-	return net.NewServer(log)
+	return server.NewServer(log)
 }

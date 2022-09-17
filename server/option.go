@@ -1,4 +1,4 @@
-package net
+package server
 
 import "github.com/cocomylove/tcpserver/iface"
 

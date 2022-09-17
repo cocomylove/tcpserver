@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/cocomylove/tcpserver/iface"
-	"github.com/cocomylove/tcpserver/net"
+	"github.com/cocomylove/tcpserver/server"
 	"github.com/cocomylove/tcpserver/utils/config"
 	"go.uber.org/zap"
 )
@@ -16,7 +16,7 @@ func main() {
 	conf := zap.NewDevelopmentConfig()
 	log, _ := conf.Build()
 	//创建一个server句柄
-	s := net.NewWSServer(log)
+	s := server.NewWSServer(log)
 
 	//注册链接hook回调函数
 	s.SetOnConnStart(DoConnectionBegin)
@@ -44,7 +44,7 @@ func DoConnectionLost(conn iface.IConnection) {
 }
 
 type Ping struct {
-	net.BaseRouter
+	server.BaseRouter
 }
 
 func (br *Ping) PreHandle(req iface.IRequest) {}
