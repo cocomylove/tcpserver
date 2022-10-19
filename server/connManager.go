@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/cocomylove/tcpserver/iface"
 	"github.com/cocomylove/tcpserver/ilog"
@@ -12,6 +13,15 @@ type ConnManager struct {
 	connections map[uint32]iface.IConnection
 	connLock    sync.RWMutex
 	logger      ilog.Logger
+}
+
+func (cm *ConnManager) ConnGC() {
+	currTime := time.Now().UnixMilli()
+	for _, conn := range cm.connections {
+		if conn.LastHeartbeatTime()+7000-currTime < 0 {
+
+		}
+	}
 }
 
 func NewConnManager(logger ilog.Logger) *ConnManager {

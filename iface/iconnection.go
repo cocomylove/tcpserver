@@ -2,9 +2,8 @@ package iface
 
 import (
 	"context"
-	"net"
-
 	"github.com/gorilla/websocket"
+	"net"
 )
 
 type IConnection interface {
@@ -23,5 +22,6 @@ type IConnection interface {
 	SetProperty(key string, value interface{})   //设置链接属性
 	GetProperty(key string) (interface{}, error) //获取链接属性
 	RemoveProperty(key string)                   //移除链接属性
-
+	SetLastHeartbeatTime(lastTime int64)         // 设置最后心跳时间
+	LastHeartbeatTime() int64                    // 获取最后心跳时间
 }

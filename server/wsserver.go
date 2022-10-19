@@ -69,7 +69,7 @@ func NewWSServer(logger *zap.Logger) *WsServer {
 	}
 }
 
-// 因为 connections 这个map删除key并非真正意义上的删除，为防止map内存泄露
+// ConnId 因为 connections 这个map删除key并非真正意义上的删除，为防止map内存泄露
 // 固定key的值以及数量，可以方便map重用内存空间
 type ConnId struct {
 	bucket []uint32
@@ -90,7 +90,6 @@ func NewConnId() *ConnId {
 func (c *ConnId) Get() uint32 {
 	id := c.bucket[0]
 	c.bucket = c.bucket[1:]
-
 	return id
 }
 
@@ -110,7 +109,7 @@ func (s *WsServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 		s.logger.Warn("server wsHandler too many connection", zap.Int("maxConn", config.GlobalObj.MaxConn))
 
 		s.OnMaxConn(conn)
-		conn.Close()
+		_ = conn.Close()
 		return
 	}
 	s.logger.Debug("server wsHandler a new conn ", zap.String("remoteAddr", conn.RemoteAddr().String()))
@@ -123,7 +122,7 @@ func (s *WsServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *WsServer) Start() {
 	s.OnMaxConn = func(conn *websocket.Conn) {
-		conn.Close()
+		_ = conn.Close()
 	}
 	s.logger.Info("server start ", zap.String("name", s.Name))
 	go s.msgHandler.StartWorkerPool()

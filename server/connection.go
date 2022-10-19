@@ -36,6 +36,8 @@ type Connection struct {
 	propertyLock sync.Mutex
 	//当前连接的关闭状态
 	isClosed bool
+	// 心跳
+	heartTime int64
 }
 
 func NewConnection(server iface.IServer, conn *net.TCPConn, connID uint32, msgHandler iface.IMsgHandle) *Connection {
@@ -48,6 +50,14 @@ func NewConnection(server iface.IServer, conn *net.TCPConn, connID uint32, msgHa
 	}
 	c.TCPServer.GetConnMgr().Add(c)
 	return c
+}
+
+func (c *Connection) SetLastHeartbeatTime(lastTime int64) {
+	c.heartTime = lastTime
+}
+
+func (c *Connection) LastHeartbeatTime() int64 {
+	return c.heartTime
 }
 
 func (c *Connection) StartWriter() {
@@ -150,7 +160,7 @@ func (c *Connection) RemoteAddr() net.Addr {
 	return c.Conn.RemoteAddr()
 }
 
-// 同步调用，最好不用
+// SendMsg 同步调用，最好不用
 func (c *Connection) SendMsg(msgID uint32, data []byte) error {
 	c.RLock()
 	defer c.RUnlock()
@@ -174,7 +184,7 @@ func (c *Connection) SendBuffMsg(msgID uint32, data []byte) error {
 	defer idleTimeout.Stop()
 
 	if c.isClosed == true {
-		return errors.New("Connection closed when send buff msg")
+		return errors.New("connection closed when send buff msg")
 	}
 
 	//将data封包，并且发送

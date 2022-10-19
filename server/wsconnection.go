@@ -40,6 +40,17 @@ type WsConnection struct {
 	isClosed bool
 	//消息类型 TextMessage 或 BinaryMessage之类
 	messageType int
+
+	// last 心跳
+	heartTime int64
+}
+
+func (ws *WsConnection) SetLastHeartbeatTime(lastTime int64) {
+	ws.heartTime = lastTime
+}
+
+func (ws *WsConnection) LastHeartbeatTime() int64 {
+	return ws.heartTime
 }
 
 func NewWsConnection(s iface.IServer, conn *websocket.Conn, connID uint32, mh iface.IMsgHandle) *WsConnection {
@@ -74,7 +85,7 @@ func (ws *WsConnection) StartReader() {
 		ws.WsServer.Logger().Debug("conn start recv from connid", zap.Uint32("connid", ws.ConnID))
 		ws.WsServer.Logger().Debug("", zap.String("data", string(data)))
 		msg := WsMessage{}
-		json.Unmarshal(data, &msg)
+		_ = json.Unmarshal(data, &msg)
 		ws.WsServer.Logger().Debug("", zap.Any("message", msg))
 		req := requestPool.Get().(*Requset)
 		req.conn = ws
@@ -101,7 +112,7 @@ func (ws *WsConnection) StartWriter() {
 		select {
 		case data, ok := <-ws.msgBuffChan:
 			if ok {
-				if err := ws.Conn.WriteMessage(1, data); err != nil {
+				if err := ws.Conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 					ws.WsServer.Logger().Warn("send buff to connection error,conn writer will be exit", zap.Error(err))
 					return
 				}
@@ -156,7 +167,7 @@ func (ws *WsConnection) SendMsg(msgID uint32, data []byte) error {
 	return nil
 }
 
-// ws发送的数据，全部使用[]byte 序列化方式由业务方面决定
+// SendBuffMsg ws发送的数据，全部使用[]byte 序列化方式由业务方面决定
 // 通讯只关注数据本身
 func (ws *WsConnection) SendBuffMsg(msgID uint32, data []byte) error {
 	ws.RLock()
@@ -165,7 +176,7 @@ func (ws *WsConnection) SendBuffMsg(msgID uint32, data []byte) error {
 	defer idleTimeout.Stop()
 
 	if ws.isClosed == true {
-		return errors.New("Connection closed when send buff msg")
+		return errors.New("connection closed when send buff msg")
 	}
 	// 发送超时
 	select {
@@ -185,27 +196,27 @@ func (ws *WsConnection) RemoveProperty(key string) {
 
 }
 
-func (c *WsConnection) finalizer() {
+func (ws *WsConnection) finalizer() {
 	//如果用户注册了该链接的关闭回调业务，那么在此刻应该显示调用
-	c.WsServer.CallOnConnStop(c)
+	ws.WsServer.CallOnConnStop(ws)
 
-	c.Lock()
-	defer c.Unlock()
+	ws.Lock()
+	defer ws.Unlock()
 
 	//如果当前链接已经关闭
-	if c.isClosed == true {
+	if ws.isClosed == true {
 		return
 	}
 
-	c.WsServer.Logger().Debug("Conn Stop()... ", zap.Uint32("connID", c.ConnID))
+	ws.WsServer.Logger().Debug("Conn Stop()... ", zap.Uint32("connID", ws.ConnID))
 
 	// 关闭socket链接
-	_ = c.Conn.Close()
+	_ = ws.Conn.Close()
 
 	//将链接从连接管理器中删除
-	c.WsServer.GetConnMgr().Remove(c)
+	ws.WsServer.GetConnMgr().Remove(ws)
 	//关闭该链接全部管道
-	close(c.msgBuffChan)
+	close(ws.msgBuffChan)
 	//设置标志位
-	c.isClosed = true
+	ws.isClosed = true
 }
