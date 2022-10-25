@@ -43,7 +43,7 @@ func (c *WSClient) Send(data []byte) error {
 
 func (c *WSClient) ReadMessage() (<-chan []byte, error) {
 	message := make(chan []byte, 1)
-
+	go c.reader(message)
 	return message, nil
 }
 
