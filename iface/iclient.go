@@ -5,4 +5,5 @@ type IClient interface {
 	Connect() error
 	Send(data []byte) error
 	ReadMessage() (<-chan []byte,error)
+//    AddRouter(router IRouter)
 }

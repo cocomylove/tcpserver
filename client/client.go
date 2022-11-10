@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"errors"
-	"github.com/gorilla/websocket"
+    "github.com/gorilla/websocket"
 	"net/http"
 	"time"
 )
@@ -24,6 +24,7 @@ type WSClient struct {
 	retry  int
 }
 
+
 func (c *WSClient) Connect() error {
 	ws, resp, err := websocket.DefaultDialer.Dial(c.config.Host, nil)
 	if err != nil {
@@ -33,7 +34,7 @@ func (c *WSClient) Connect() error {
 		return errors.New("response code is not 101")
 	}
 	c.conn = ws
-	_ = c.conn.SetWriteDeadline(time.Now().Add(c.config.Timeout))
+    _ = c.conn.SetWriteDeadline(time.Now().Add(c.config.Timeout))
 	return nil
 }
 
@@ -41,26 +42,27 @@ func (c *WSClient) Send(data []byte) error {
 	return c.conn.WriteMessage(c.config.MessageType, data)
 }
 
-func (c *WSClient) ReadMessage() (<-chan []byte, error) {
-	message := make(chan []byte, 1)
+func (c *WSClient) ReadMessage() (<-chan ServerMessage, error) {
+    message := make(chan ServerMessage, 1)
 	go c.reader(message)
 	return message, nil
 }
 
-func (c *WSClient) reader(message chan []byte) {
+func (c *WSClient) reader(messageChan chan ServerMessage) {
 Loop:
 	for {
 		t, data, err := c.conn.ReadMessage()
-		if t != websocket.BinaryMessage {
-			continue
-		}
 		if err != nil {
 			if c.retry < c.config.RetryTimes {
-				goto Loop
+				break Loop
 			}
 			return
 		}
-		message <- data
+        msg := &message{
+            Data: data,
+            Type: uint32(t),
+        }
+        messageChan<-msg
 	}
 
 }

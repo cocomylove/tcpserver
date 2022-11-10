@@ -14,6 +14,12 @@ import (
 	"go.uber.org/zap"
 )
 
+type mesaage struct {
+    msgType uint32
+    data []byte
+}
+
+
 type WsConnection struct {
 	//当前Conn属于哪个Server
 	WsServer iface.IServer
@@ -27,7 +33,7 @@ type WsConnection struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	//有缓冲管道，用于读、写两个goroutine之间的消息通信
-	msgBuffChan chan []byte
+	msgBuffChan chan mesaage
 
 	// 无缓冲通道
 	msgChan chan []byte
@@ -40,7 +46,6 @@ type WsConnection struct {
 	isClosed bool
 	//消息类型 TextMessage 或 BinaryMessage之类
 	messageType int
-
 	// last 心跳
 	heartTime int64
 }
@@ -60,7 +65,7 @@ func NewWsConnection(s iface.IServer, conn *websocket.Conn, connID uint32, mh if
 		Conn:        conn,
 		MsgHandler:  mh,
 		isClosed:    false,
-		msgBuffChan: make(chan []byte, config.GlobalObj.MaxMsgChanLen),
+		msgBuffChan: make(chan mesaage, config.GlobalObj.MaxMsgChanLen),
 		msgChan:     make(chan []byte, 1),
 		ctx:         ctx,
 		cancel:      cancel,
@@ -110,9 +115,9 @@ func (ws *WsConnection) StartWriter() {
 	defer ws.WsServer.Logger().Debug("conn writer is exit", zap.String("address", ws.RemoteAddr().String()))
 	for {
 		select {
-		case data, ok := <-ws.msgBuffChan:
+		case msg, ok := <-ws.msgBuffChan:
 			if ok {
-				if err := ws.Conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+                if err := ws.Conn.WriteMessage(int(msg.msgType), msg.data); err != nil {
 					ws.WsServer.Logger().Warn("send buff to connection error,conn writer will be exit", zap.Error(err))
 					return
 				}
@@ -170,19 +175,23 @@ func (ws *WsConnection) SendMsg(msgID uint32, data []byte) error {
 // SendBuffMsg ws发送的数据，全部使用[]byte 序列化方式由业务方面决定
 // 通讯只关注数据本身
 func (ws *WsConnection) SendBuffMsg(msgID uint32, data []byte) error {
-	ws.RLock()
-	defer ws.RUnlock()
+//	ws.RLock()
+//	defer ws.RUnlock()
 	idleTimeout := time.NewTimer(5 * time.Millisecond)
 	defer idleTimeout.Stop()
 
-	if ws.isClosed == true {
+	if ws.isClosed  {
 		return errors.New("connection closed when send buff msg")
 	}
+    msg := mesaage{
+        msgType: msgID,
+        data: data,
+    }
 	// 发送超时
 	select {
 	case <-idleTimeout.C:
 		return errors.New("send buff msg timeout")
-	case ws.msgBuffChan <- data:
+	case ws.msgBuffChan <- msg:
 		return nil
 	}
 }
