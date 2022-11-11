@@ -14,7 +14,7 @@ import (
 )
 
 type WsServer struct {
-
+    cfg config.GlobalObject
 	//服务器的名称
 	Name string
 	// wss or ws
@@ -54,18 +54,19 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func NewWSServer(logger *zap.Logger) *WsServer {
+func NewWSServer(logger *zap.Logger,cfg config.GlobalObject) *WsServer {
 	return &WsServer{
-		Name:       config.GlobalObj.Name,
+        cfg: cfg,
+        Name:       cfg.Name,
 		Scheme:     "ws",
-		IP:         config.GlobalObj.Host,
-		Port:       config.GlobalObj.TCPPort,
+        IP:         cfg.Host,
+        Port:       cfg.TCPPort,
 		msgHandler: NewMessageHandler(logger),
 		ConnMgr:    NewConnManager(logger),
 		// packet:     NewDataPack(),
 		Path:   "feature",
 		logger: logger,
-		connId: NewConnId(),
+		connId: NewConnId(cfg.MaxConn),
 	}
 }
 
@@ -76,12 +77,12 @@ type ConnId struct {
 	// maxConnId int
 }
 
-func NewConnId() *ConnId {
+func NewConnId(maxConn int) *ConnId {
 	c := &ConnId{
-		bucket: make([]uint32, 0, config.GlobalObj.MaxConn),
+		bucket: make([]uint32, 0, maxConn),
 	}
 
-	for i := 0; i < config.GlobalObj.MaxConn; i++ {
+	for i := 0; i < maxConn; i++ {
 		c.bucket = append(c.bucket, uint32(i))
 	}
 	return c
@@ -105,8 +106,8 @@ func (s *WsServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.ConnMgr.Len() >= config.GlobalObj.MaxConn {
-		s.logger.Warn("server wsHandler too many connection", zap.Int("maxConn", config.GlobalObj.MaxConn))
+	if s.ConnMgr.Len() >= s.cfg.MaxConn {
+		s.logger.Warn("server wsHandler too many connection", zap.Int("maxConn", s.cfg.MaxConn))
 
 		s.OnMaxConn(conn)
 		_ = conn.Close()
