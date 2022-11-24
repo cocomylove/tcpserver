@@ -24,6 +24,14 @@ type WSClient struct {
 	retry  int
 }
 
+func NewWSClient(config Config,ctx context.Context) *WSClient {
+    return &WSClient{
+        config: config,
+        ctx: ctx,
+    }
+}
+
+
 
 func (c *WSClient) Connect() error {
 	ws, resp, err := websocket.DefaultDialer.Dial(c.config.Host, nil)

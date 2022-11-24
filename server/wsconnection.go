@@ -9,16 +9,14 @@ import (
 	"time"
 
 	"github.com/cocomylove/tcpserver/iface"
-	"github.com/cocomylove/tcpserver/utils/config"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
 type mesaage struct {
-    msgType uint32
-    data []byte
+	msgType uint32
+	data    []byte
 }
-
 
 type WsConnection struct {
 	//当前Conn属于哪个Server
@@ -48,6 +46,8 @@ type WsConnection struct {
 	messageType int
 	// last 心跳
 	heartTime int64
+	// worker 大小
+	workerSize int
 }
 
 func (ws *WsConnection) SetLastHeartbeatTime(lastTime int64) {
@@ -58,18 +58,19 @@ func (ws *WsConnection) LastHeartbeatTime() int64 {
 	return ws.heartTime
 }
 
-func NewWsConnection(s iface.IServer, conn *websocket.Conn, connID uint32, mh iface.IMsgHandle) *WsConnection {
+func NewWsConnection(s iface.IServer, conn *websocket.Conn, connID uint32, msgBuffSize, workerSize int, mh iface.IMsgHandle) *WsConnection {
 	ctx, cancel := context.WithCancel(context.Background())
 	wsc := &WsConnection{
 		WsServer:    s,
 		Conn:        conn,
 		MsgHandler:  mh,
 		isClosed:    false,
-		msgBuffChan: make(chan mesaage, config.GlobalObj.MaxMsgChanLen),
+		msgBuffChan: make(chan mesaage, msgBuffSize),
 		msgChan:     make(chan []byte, 1),
 		ctx:         ctx,
 		cancel:      cancel,
 		ConnID:      connID,
+		workerSize:  workerSize,
 	}
 	s.GetConnMgr().Add(wsc)
 	return wsc
@@ -99,7 +100,7 @@ func (ws *WsConnection) StartReader() {
 		case <-ws.ctx.Done():
 			goto readClose
 		default:
-			if config.GlobalObj.WorkerPoolSize > 0 {
+			if ws.workerSize > 0 {
 				ws.MsgHandler.SendMsgToTaskQueue(req)
 			} else {
 				ws.MsgHandler.DoMsgHandler(req)
@@ -117,7 +118,7 @@ func (ws *WsConnection) StartWriter() {
 		select {
 		case msg, ok := <-ws.msgBuffChan:
 			if ok {
-                if err := ws.Conn.WriteMessage(int(msg.msgType), msg.data); err != nil {
+				if err := ws.Conn.WriteMessage(int(msg.msgType), msg.data); err != nil {
 					ws.WsServer.Logger().Warn("send buff to connection error,conn writer will be exit", zap.Error(err))
 					return
 				}
@@ -175,18 +176,18 @@ func (ws *WsConnection) SendMsg(msgID uint32, data []byte) error {
 // SendBuffMsg ws发送的数据，全部使用[]byte 序列化方式由业务方面决定
 // 通讯只关注数据本身
 func (ws *WsConnection) SendBuffMsg(msgID uint32, data []byte) error {
-//	ws.RLock()
-//	defer ws.RUnlock()
+	//	ws.RLock()
+	//	defer ws.RUnlock()
 	idleTimeout := time.NewTimer(5 * time.Millisecond)
 	defer idleTimeout.Stop()
 
-	if ws.isClosed  {
+	if ws.isClosed {
 		return errors.New("connection closed when send buff msg")
 	}
-    msg := mesaage{
-        msgType: msgID,
-        data: data,
-    }
+	msg := mesaage{
+		msgType: msgID,
+		data:    data,
+	}
 	// 发送超时
 	select {
 	case <-idleTimeout.C:

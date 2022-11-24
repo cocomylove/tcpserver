@@ -4,17 +4,17 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/cocomylove/tcpserver/iface"
 	"github.com/cocomylove/tcpserver/ilog"
 	"github.com/cocomylove/tcpserver/utils/config"
-	"go.uber.org/zap"
-
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 type WsServer struct {
-    cfg config.GlobalObject
+	cfg config.GlobalObject
 	//服务器的名称
 	Name string
 	// wss or ws
@@ -45,22 +45,22 @@ type WsServer struct {
 }
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  2048,
-	WriteBufferSize: 2048,
-
+	ReadBufferSize:   4096,
+	WriteBufferSize:  4096,
+	HandshakeTimeout: 5 * time.Second,
 	// 解决跨域
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
 
-func NewWSServer(logger *zap.Logger,cfg config.GlobalObject) *WsServer {
+func NewWSServer(logger *zap.Logger, cfg config.GlobalObject) *WsServer {
 	return &WsServer{
-        cfg: cfg,
-        Name:       cfg.Name,
+		cfg:        cfg,
+		Name:       cfg.Name,
 		Scheme:     "ws",
-        IP:         cfg.Host,
-        Port:       cfg.TCPPort,
+		IP:         cfg.Host,
+		Port:       cfg.TCPPort,
 		msgHandler: NewMessageHandler(logger),
 		ConnMgr:    NewConnManager(logger),
 		// packet:     NewDataPack(),
@@ -116,7 +116,7 @@ func (s *WsServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 	s.logger.Debug("server wsHandler a new conn ", zap.String("remoteAddr", conn.RemoteAddr().String()))
 	id := s.connId.Get()
 	s.logger.Debug("conid ", zap.Uint32("connid", id))
-	dealConn := NewWsConnection(s, conn, id, s.msgHandler)
+	dealConn := NewWsConnection(s, conn, id, int(s.cfg.MaxMsgChanLen), int(s.cfg.WorkerPoolSize), s.msgHandler)
 	go dealConn.Start()
 
 }
