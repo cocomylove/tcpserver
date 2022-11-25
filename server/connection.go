@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cocomylove/tcpserver/config"
 	"github.com/cocomylove/tcpserver/iface"
-	"github.com/cocomylove/tcpserver/utils/config"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )

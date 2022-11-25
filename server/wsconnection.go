@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type mesaage struct {
+type message struct {
 	msgType uint32
 	data    []byte
 }
@@ -31,7 +31,7 @@ type WsConnection struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	//有缓冲管道，用于读、写两个goroutine之间的消息通信
-	msgBuffChan chan mesaage
+	msgBuffChan chan message
 
 	// 无缓冲通道
 	msgChan chan []byte
@@ -65,7 +65,7 @@ func NewWsConnection(s iface.IServer, conn *websocket.Conn, connID uint32, msgBu
 		Conn:        conn,
 		MsgHandler:  mh,
 		isClosed:    false,
-		msgBuffChan: make(chan mesaage, msgBuffSize),
+		msgBuffChan: make(chan message, msgBuffSize),
 		msgChan:     make(chan []byte, 1),
 		ctx:         ctx,
 		cancel:      cancel,
@@ -184,7 +184,7 @@ func (ws *WsConnection) SendBuffMsg(msgID uint32, data []byte) error {
 	if ws.isClosed {
 		return errors.New("connection closed when send buff msg")
 	}
-	msg := mesaage{
+	msg := message{
 		msgType: msgID,
 		data:    data,
 	}
