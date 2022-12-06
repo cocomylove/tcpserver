@@ -3,7 +3,8 @@ package client
 import (
 	"context"
 	"errors"
-    "github.com/gorilla/websocket"
+	"github.com/cocomylove/tcpserver/iface"
+	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
 )
@@ -24,14 +25,12 @@ type WSClient struct {
 	retry  int
 }
 
-func NewWSClient(config Config,ctx context.Context) *WSClient {
-    return &WSClient{
-        config: config,
-        ctx: ctx,
-    }
+func NewWSClient(config Config, ctx context.Context) *WSClient {
+	return &WSClient{
+		config: config,
+		ctx:    ctx,
+	}
 }
-
-
 
 func (c *WSClient) Connect() error {
 	ws, resp, err := websocket.DefaultDialer.Dial(c.config.Host, nil)
@@ -42,7 +41,7 @@ func (c *WSClient) Connect() error {
 		return errors.New("response code is not 101")
 	}
 	c.conn = ws
-    _ = c.conn.SetWriteDeadline(time.Now().Add(c.config.Timeout))
+	_ = c.conn.SetWriteDeadline(time.Now().Add(c.config.Timeout))
 	return nil
 }
 
@@ -50,13 +49,13 @@ func (c *WSClient) Send(data []byte) error {
 	return c.conn.WriteMessage(c.config.MessageType, data)
 }
 
-func (c *WSClient) ReadMessage() (<-chan ServerMessage, error) {
-    message := make(chan ServerMessage, 1)
+func (c *WSClient) ReadMessage() (<-chan iface.ServerMessage, error) {
+	message := make(chan iface.ServerMessage, 1)
 	go c.reader(message)
 	return message, nil
 }
 
-func (c *WSClient) reader(messageChan chan ServerMessage) {
+func (c *WSClient) reader(messageChan chan iface.ServerMessage) {
 Loop:
 	for {
 		t, data, err := c.conn.ReadMessage()
@@ -66,11 +65,11 @@ Loop:
 			}
 			return
 		}
-        msg := &message{
-            Data: data,
-            Type: uint32(t),
-        }
-        messageChan<-msg
+		msg := &message{
+			Data: data,
+			Type: uint32(t),
+		}
+		messageChan <- msg
 	}
 
 }
